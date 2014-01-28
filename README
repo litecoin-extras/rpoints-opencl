@@ -15,7 +15,8 @@ number of threads to run. Set this to the number of logical CPU cores you
 have, if you want to get the best performance.
 
 The code is somewhat slapdash, uncommented and not great quality. It was
-something of a throw-it-together-quickly project. Sorry.
+something of a throw-it-together-quickly project. Sorry, Dijkstra.
+http://imgur.com/uV6dr7y
 
 C++ version written by gh2k, and your generous tips can be sent to
 1gh2k13JzLTxDz2vmo8RH7HcjTLLg5kdc ;-)
