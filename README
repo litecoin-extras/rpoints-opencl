@@ -21,3 +21,15 @@ C++ version written by gh2k, and your generous tips can be sent to
 1gh2k13JzLTxDz2vmo8RH7HcjTLLg5kdc ;-)
 
 The .sln is for Visual Studio 2012. Linux Makefile is in the works.
+
+A Windows binary build is here:
+https://dl.dropboxusercontent.com/u/85325596/rpoints/rpoints.zip
+
+This contains two versions, depending on whether you have an older or newer i7.
+The 'noavx' exe should be used for older processors. If you're not sure, try
+the faster one first, and the 'noavx' one if it crashes on startup.
+
+It only works on 64-bit Windows, and needs the x64 redist from:
+http://www.microsoft.com/en-gb/download/details.aspx?id=30679
+
+
