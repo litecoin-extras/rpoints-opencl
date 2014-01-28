@@ -1,0 +1,23 @@
+C++ port of evil-knevil's python script to look for specific bitcoin private
+keys.
+
+This is a straight port of the py script to c++, using mpir for bit integer
+support. It's possible there's a better or faster way to do this, but it
+does provide a decent speed improvement on the python version.
+
+This program works in conjunction with the server at
+http://www.bitprobing.com/ - see that site, and the thread at
+https://bitcointalk.org/index.php?topic=433522.280
+for more details.
+
+Run it with 2 parameters. The first is your BTC address, the second is the
+number of threads to run. Set this to the number of logical CPU cores you
+have, if you want to get the best performance.
+
+The code is somewhat slapdash, uncommented and not great quality. It was
+something of a throw-it-together-quickly project. Sorry.
+
+C++ version written by gh2k, and your generous tips can be sent to
+1gh2k13JzLTxDz2vmo8RH7HcjTLLg5kdc ;-)
+
+The .sln is for Visual Studio 2012. Linux Makefile is in the works.
