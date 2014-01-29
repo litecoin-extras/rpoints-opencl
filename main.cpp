@@ -46,8 +46,13 @@ void leftmost_bit(mpz_t &out, const mpz_t &x)
 
 static std::mutex countMutex;
 static std::mutex resultMutex;
+static std::mutex statsMutex;
 static std::list<Result> resultList;
 static unsigned int tryCount = 0;
+static unsigned int resultCount = 0;
+static unsigned int duplicateCount = 0;
+static unsigned int rejectCount = 0;
+static unsigned int queuedCount = 0;
 
 void work()
 {
@@ -181,6 +186,7 @@ int submit_share(const std::string &btc, const std::string &result)
 	socket.Initialize();
 
 	if (!socket.Open((const uint8 *)"stargate.bitwarrant.com", 4444))
+	//if (!socket.Open((const uint8 *)"localhost", 4444))
 		return -1;
 
 	if (!socket.Send((const uint8 *)outbuf.data(), outbuf.size()))
@@ -192,9 +198,56 @@ int submit_share(const std::string &btc, const std::string &result)
 	int r = 0;
 	if (strstr(resp, "submission is great"))
 		r = 1;
+	if (strstr(resp, "submission is already here"))
+		r = 2;
 	socket.Close();
 
 	return r;
+}
+
+void submitter(const std::string btc)
+{
+	std::list<Result> queuedResults;
+	
+    std::chrono::milliseconds sleeptime( 100 );
+
+	while( true )
+	{
+		resultMutex.lock();
+		queuedResults.splice(queuedResults.end(), resultList);
+		resultMutex.unlock();
+		
+		std::list<Result> heldResults;
+
+		while (queuedResults.size())
+		{
+			std::string rs(queuedResults.front().to_s());
+			int r = submit_share(btc, rs);
+
+			statsMutex.lock();
+			switch (r)
+			{
+			case -1:
+				heldResults.push_back(heldResults.front());
+				break;
+			case 1:
+				++ resultCount;
+				break;
+			case 0:
+				++ rejectCount;
+				break;
+			case 2:
+				++ duplicateCount;
+				break;
+			}
+			queuedCount = static_cast<unsigned int>(queuedResults.size() + heldResults.size()) - 1;
+			statsMutex.unlock();
+
+			queuedResults.pop_front();
+		}
+
+		queuedResults.splice(queuedResults.end(), heldResults);
+	}
 }
 
 int main(int argc, char **argv)
@@ -229,12 +282,12 @@ int main(int argc, char **argv)
 		threads.push_back(new std::thread(work));
 	}
 	
+	threads.push_back(new std::thread(submitter, btc));
+	
     std::chrono::milliseconds sleeptime( 100 );
 
 	time_t secs = time(0);
 	time_t starttime = time(0);
-
-	size_t resultCount = 0;
 
 	while( true )
 	{
@@ -249,62 +302,11 @@ int main(int argc, char **argv)
 			tryCount = 0;
 			countMutex.unlock();
 
-			resultMutex.lock();
-			std::list<Result> newResults = resultList;
-			resultList.clear();
-			resultMutex.unlock();
-
-			bool process_held_results = false;
-
-			while (newResults.size())
-			{
-				std::string rs(newResults.front().to_s());
-				++resultCount;
-				switch (submit_share(btc, rs))
-				{
-				case -1:
-					puts("Share send failed. Couldn't connect. Caching share.");
-					held_results.push_back(newResults.front());
-					break;
-				case 1:
-					puts("Share accepted!");
-					++ resultCount;
-					process_held_results = held_results.size() > 0;
-					break;
-				case 0:
-					puts("Share REJECTED.");
-					break;
-				}
-
-				newResults.pop_front();
-			}
-
-			if ( process_held_results )
-			{
-				while (held_results.size())
-				{
-					std::string rs(held_results.front().to_s());
-					switch (submit_share(btc, rs))
-					{
-					case -1:
-						puts("Share send failed. Couldn't connect.");
-						break;
-					case 1:
-						puts("Cached share accepted!");
-						++ resultCount;
-						break;
-					case 0:
-						puts("Cached share REJECTED.");
-						break;
-					}
-
-					held_results.pop_front();
-				}
-			}
-
+			statsMutex.lock();
 			double resultsPerHour = static_cast<double>(resultCount) / (static_cast<double>(curtime - starttime) / 60.0 / 60.0);
 
-			printf("%d keys/sec - %d found (%.2f / hour)\n", curtries / 10, resultCount, resultsPerHour);
+			printf("%d keys/sec - %d found (%.2f / hour) - %d rejected, %d duplicates, %d queued\n", curtries / 10, resultCount, resultsPerHour, rejectCount, duplicateCount, queuedCount);
+			statsMutex.unlock();
 		}
 	}
 }

@@ -134,6 +134,9 @@
     <ClCompile Include="targets.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="curvefp.h" />
+    <ClInclude Include="point.h" />
+    <ClInclude Include="result.h" />
     <ClInclude Include="targets.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
