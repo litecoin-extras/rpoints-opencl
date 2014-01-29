@@ -305,7 +305,7 @@ int main(int argc, char **argv)
 			statsMutex.lock();
 			double resultsPerHour = static_cast<double>(resultCount) / (static_cast<double>(curtime - starttime) / 60.0 / 60.0);
 
-			printf("%d keys/sec - %d found (%.2f / hour) - %d rejected, %d duplicates, %d queued\n", curtries / 10, resultCount, resultsPerHour, rejectCount, duplicateCount, queuedCount);
+			printf("%d keys/sec - %d found (%.2f / hour) - %d rej, %d dup, %d que\n", curtries / 10, resultCount, resultsPerHour, rejectCount, duplicateCount, queuedCount);
 			statsMutex.unlock();
 		}
 	}
