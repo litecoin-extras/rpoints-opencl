@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "generate_even_more_rendezvous_points", "generate_even_more_rendezvous_points.vcxproj", "{70407819-849B-49AF-859E-10EB8F7B2CB2}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rpoints-server", "rpoints-server.vcxproj", "{B86E77E8-BCC9-4819-9D6A-DDFA919C18AC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -16,6 +18,12 @@ Global
 		{70407819-849B-49AF-859E-10EB8F7B2CB2}.Release|x64.Build.0 = Release|x64
 		{70407819-849B-49AF-859E-10EB8F7B2CB2}.Release-noavx|x64.ActiveCfg = Release-noavx|x64
 		{70407819-849B-49AF-859E-10EB8F7B2CB2}.Release-noavx|x64.Build.0 = Release-noavx|x64
+		{B86E77E8-BCC9-4819-9D6A-DDFA919C18AC}.Debug|x64.ActiveCfg = Debug|x64
+		{B86E77E8-BCC9-4819-9D6A-DDFA919C18AC}.Debug|x64.Build.0 = Debug|x64
+		{B86E77E8-BCC9-4819-9D6A-DDFA919C18AC}.Release|x64.ActiveCfg = Release|x64
+		{B86E77E8-BCC9-4819-9D6A-DDFA919C18AC}.Release|x64.Build.0 = Release|x64
+		{B86E77E8-BCC9-4819-9D6A-DDFA919C18AC}.Release-noavx|x64.ActiveCfg = Release|x64
+		{B86E77E8-BCC9-4819-9D6A-DDFA919C18AC}.Release-noavx|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

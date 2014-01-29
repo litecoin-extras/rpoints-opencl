@@ -26,5 +26,14 @@
     <ClInclude Include="targets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="point.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="curvefp.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="result.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
