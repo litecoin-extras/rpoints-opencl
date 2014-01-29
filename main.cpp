@@ -97,84 +97,6 @@ static std::mutex resultMutex;
 static std::list<Result> resultList;
 static unsigned int tryCount = 0;
 
-void inverse_mod(mpz_t &out, const mpz_t &_a, const mpz_t &m)
-{
-	mpz_t a;
-	mpz_init(a);
-	mpz_set(a, _a);
-
-	if (mpz_cmp_ui(a, 0) < 0 || mpz_cmp(m, a) <= 0)
-	{
-		mpz_mod(a, _a, m);
-	}
-
-	mpz_t c;
-	mpz_init(c);
-	mpz_set(c, a);
-	mpz_t d;
-	mpz_init(d);
-	mpz_set(d, m);
-
-	mpz_t uc;
-	mpz_t vc;
-	mpz_t ud;
-	mpz_t vd;
-	mpz_init(uc);
-	mpz_set_ui(uc, 1);
-	mpz_init(vc);
-	mpz_set_ui(vc, 0);
-	mpz_init(ud);
-	mpz_set_ui(ud, 0);
-	mpz_init(vd);
-	mpz_set_ui(vd, 1);
-
-	mpz_t q;
-	mpz_init(q);
-	mpz_t tmp;
-	mpz_init(tmp);
-	mpz_t tmp2;
-	mpz_init(tmp2);
-	mpz_t tmp3;
-	mpz_init(tmp3);
-
-	while(mpz_cmp_ui(c, 0) != 0)
-	{
-		mpz_set(tmp, c);
-		mpz_divmod(q, c, d, c);
-		mpz_set(d, tmp);
-
-		mpz_mul(tmp, q, uc);
-		mpz_set(tmp2, uc);
-		mpz_sub(uc, ud, tmp);
-
-		mpz_mul(tmp, q, vc);
-		mpz_set(tmp3, vc);
-		mpz_sub(vc, vd, tmp);
-
-		mpz_set(ud, tmp2);
-		mpz_set(vd, tmp3);
-	}
-
-	//assert(mpz_cmp_ui(d, 1) == 0);
-
-	if (mpz_cmp_ui(ud, 0) > 0)
-		mpz_set(out, ud);
-	else
-		mpz_add(out, ud, m);
-	
-	mpz_clear(tmp3);
-	mpz_clear(tmp2);
-	mpz_clear(tmp);
-	mpz_clear(q);
-	mpz_clear(vd);
-	mpz_clear(ud);
-	mpz_clear(vc);
-	mpz_clear(uc);
-	mpz_clear(c);
-	mpz_clear(d);
-	mpz_clear(a);
-}
-
 void leftmost_bit(mpz_t &out, const mpz_t &x)
 {
 	//assert(mpz_cmp_ui(x, 0) > 0);
@@ -399,7 +321,7 @@ public:
 
 		mpz_t imod;
 		mpz_init(imod);
-		inverse_mod(imod, xsub, m_curve.p());
+		mpz_invert(imod, xsub, m_curve.p());
 
 		mpz_t mul;
 		mpz_init(mul);
@@ -558,7 +480,7 @@ public:
 
 		mpz_t imod;
 		mpz_init(imod);
-		inverse_mod(imod, ydbl, m_curve.p());
+		mpz_invert(imod, ydbl, m_curve.p());
 
 		mpz_t mul;
 		mpz_init(mul);
