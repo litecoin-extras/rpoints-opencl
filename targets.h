@@ -3,6 +3,8 @@
 
 #include <set>
 
-void initTargets(std::set<unsigned long> &targets);
+#include "Host.h" // has uint32 ;-)
+
+void initTargets(std::set<uint32> &targets);
 
 #endif //_TARGETS_H_

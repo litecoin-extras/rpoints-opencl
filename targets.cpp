@@ -1,6 +1,6 @@
 #include "targets.h"
 
-void initTargets(std::set<unsigned long> &targets)
+void initTargets(std::set<uint32> &targets)
 {
     targets.insert(0xe8c4cd13);
     targets.insert(0x567feb3c);

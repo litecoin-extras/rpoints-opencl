@@ -639,21 +639,20 @@ void work()
 {
 	static const unsigned int tries = 100;
 
-	std::set<unsigned long> targets;
+	uint64 seed64 = (uint64)time(0) << 32 | static_cast<uint32>(std::hash<std::thread::id>()(std::this_thread::get_id()));
+	uint32 seed32 = static_cast<uint32>(time(0)) ^ static_cast<uint32>(std::hash<std::thread::id>()(std::this_thread::get_id()));
+	srand(seed32);
+
+	std::set<uint32> targets;
 	initTargets(targets);
 
 	mpz_t seed;
 	mpz_init(seed);
-	mpz_set_ui(seed, (unsigned long long)time(0) << 32 | static_cast<unsigned long>(std::hash<std::thread::id>()(std::this_thread::get_id())));
+	mpz_set_ui(seed, seed64);
 
 	gmp_randstate_t randstate;
 	gmp_randinit_mt(randstate);
 	gmp_randseed(randstate, seed);
-
-	mpz_t priv;
-	mpz_init(priv);
-	mpz_t priv2;
-	mpz_init(priv2);
 
 	mpz_t p;
 	mpz_t b;
@@ -679,25 +678,60 @@ void work()
 	Point point(curve, gx, gy, r);
 	Point g(point);
 
+	mpz_t priv;
+	mpz_init(priv);
+	mpz_t additor1;
+	mpz_init(additor1);
+	mpz_t additor2;
+	mpz_init(additor2);
+	mpz_t additor3;
+	mpz_init(additor3);
+	
+	mpz_urandomb(priv, randstate, 256);
+	mpz_urandomb(additor1, randstate, 230);
+	mpz_urandomb(additor2, randstate, 230);
+	mpz_urandomb(additor3, randstate, 128);
+
+	mpz_t temppriv;
+	mpz_init_set(temppriv, priv);
+	
+	Point myp = g * priv;
+
+	Point add1 = g * additor1;
+	Point add2 = g * additor2;
+	Point add3 = g * additor3;
+
 	while( true )
 	{
-		mpz_urandomb(priv, randstate, 256);
 		//mpz_set_ui(priv, 99337);
-		Point myp = g * priv;
-
+		unsigned int shuffle = rand() % 3;
+		switch(shuffle)
+		{
+		case 0:
+			myp = myp + add1;
+			mpz_add(temppriv, temppriv, additor1);
+			break;
+		case 2:
+			myp = myp + add2;
+			mpz_add(temppriv, temppriv, additor2);
+			break;
+		default:
+			myp = myp + add3;
+			mpz_add(temppriv, temppriv, additor3);
+			break;
+		}
 
 		for(unsigned int i = 0; i < tries; ++ i)
 		{
 			myp = myp + g;
-			mpz_add_ui(priv2, priv, 1);
-			mpz_set(priv, priv2);
+			mpz_add_ui(temppriv, temppriv, 1);
 
-			unsigned long match = static_cast<unsigned long>(mpz_get_ui(myp.x()));
+			uint32 match = static_cast<uint32>(mpz_get_ui(myp.x()));
 
 			if (targets.count(match))
 			{
 				resultMutex.lock();
-				resultList.push_back(Result(myp.x(), myp.y(), priv));
+				resultList.push_back(Result(myp.x(), myp.y(), temppriv));
 				resultMutex.unlock();
 			}
 		}
@@ -714,7 +748,10 @@ void work()
 	mpz_clear(b);
 	mpz_clear(a);
 	mpz_clear(priv);
-	mpz_clear(priv2);
+	mpz_clear(temppriv);
+	mpz_clear(additor1);
+	mpz_clear(additor2);
+	mpz_clear(additor3);
 	mpz_clear(seed);
 }
 
