@@ -140,9 +140,7 @@ void inverse_mod(mpz_t &out, const mpz_t &_a, const mpz_t &m)
 	while(mpz_cmp_ui(c, 0) != 0)
 	{
 		mpz_set(tmp, c);
-		mpz_div(q, d, c);
-		mpz_mod(tmp2, d, c);
-		mpz_set(c,tmp2);
+		mpz_divmod(q, c, d, c);
 		mpz_set(d, tmp);
 
 		mpz_mul(tmp, q, uc);
