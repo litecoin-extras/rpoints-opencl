@@ -21,7 +21,8 @@ http://imgur.com/uV6dr7y
 C++ version written by gh2k, and your generous tips can be sent to
 1gh2k13JzLTxDz2vmo8RH7HcjTLLg5kdc ;-)
 
-The .sln is for Visual Studio 2012. Linux Makefile is in the works.
+The .sln is for Visual Studio 2012. The Makefile is for Linux (not yet
+working!) -- Not tested on osx.
 
 A Windows binary build is here:
 https://dl.dropboxusercontent.com/u/85325596/rpoints/rpoints.zip
@@ -33,4 +34,24 @@ the faster one first, and the 'noavx' one if it crashes on startup.
 It only works on 64-bit Windows, and needs the x64 redist from:
 http://www.microsoft.com/en-gb/download/details.aspx?id=30679
 
+To build on Linux: 
+THE LINUX BUILD DOES NOT YET WORK.
+It appears to be doing the right thing, processing the same number of keys/sec
+as my Windows build, but it never finds a valid result.
+(only tested on ubuntu 12.04+ x64)
 
+obviously:
+apt-get install build-essential git-core
+
+you need libgmp:
+apt-get install libgmp-dev
+
+You need clsocket:
+apt-get install cmake
+git clone https://github.com/DFHack/clsocket.git
+cd clsocket
+cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr .
+make
+sudo make install
+
+You should then be able to run 'make', to build.

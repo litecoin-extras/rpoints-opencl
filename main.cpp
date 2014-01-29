@@ -5,7 +5,11 @@
 #include <list>
 #include <mutex>
 
+#ifdef USE_GMP
+#include <gmp.h>
+#else //USE_GMP
 #include "mpir.h"
+#endif //USE_GMP
 #include "targets.h"
 
 #include "ActiveSocket.h"
@@ -640,7 +644,7 @@ void work()
 
 	mpz_t seed;
 	mpz_init(seed);
-	mpz_set_ui(seed, (unsigned long long)time(0) << 32 | static_cast<unsigned long>(std::this_thread::get_id().hash()));
+	mpz_set_ui(seed, (unsigned long long)time(0) << 32 | static_cast<unsigned long>(std::hash<std::thread::id>()(std::this_thread::get_id())));
 
 	gmp_randstate_t randstate;
 	gmp_randinit_mt(randstate);
