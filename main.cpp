@@ -801,6 +801,8 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+	std::list<Result> held_results;
+
 	puts("C++ BTC address space analyzer by gh2k");
 	puts("Tips: 1gh2k13JzLTxDz2vmo8RH7HcjTLLg5kdc ;-)");
 	puts("");
@@ -839,17 +841,21 @@ int main(int argc, char **argv)
 			resultList.clear();
 			resultMutex.unlock();
 
+			bool process_held_results = false;
+
 			while (newResults.size())
 			{
 				std::string rs(newResults.front().to_s());
 				switch (submit_share(btc, rs))
 				{
 				case -1:
-					puts("Share send failed. Couldn't connect.");
+					puts("Share send failed. Couldn't connect. Caching share.");
+					held_results.push_back(newResults.front());
 					break;
 				case 1:
 					puts("Share accepted!");
 					++ resultCount;
+					process_held_results = held_results.size() > 0;
 					break;
 				case 0:
 					puts("Share REJECTED.");
@@ -857,6 +863,29 @@ int main(int argc, char **argv)
 				}
 
 				newResults.pop_front();
+			}
+
+			if ( process_held_results )
+			{
+				while (held_results.size())
+				{
+					std::string rs(held_results.front().to_s());
+					switch (submit_share(btc, rs))
+					{
+					case -1:
+						puts("Share send failed. Couldn't connect.");
+						break;
+					case 1:
+						puts("Cached share accepted!");
+						++ resultCount;
+						break;
+					case 0:
+						puts("Cached share REJECTED.");
+						break;
+					}
+
+					held_results.pop_front();
+				}
 			}
 
 			double resultsPerHour = static_cast<double>(resultCount) / (static_cast<double>(curtime - starttime) / 60.0 / 60.0);
