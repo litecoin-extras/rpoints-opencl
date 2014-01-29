@@ -755,7 +755,7 @@ void work()
 	mpz_clear(seed);
 }
 
-bool submit_share(const std::string &btc, const std::string &result)
+int submit_share(const std::string &btc, const std::string &result)
 {
 	std::string outbuf;
 	outbuf += "result ";
@@ -768,18 +768,20 @@ bool submit_share(const std::string &btc, const std::string &result)
 	socket.Initialize();
 
 	if (!socket.Open((const uint8 *)"stargate.bitwarrant.com", 4444))
-		return false;
+		return -1;
 
 	if (!socket.Send((const uint8 *)outbuf.data(), outbuf.size()))
-		return false;
+		return -1;
 
 	char resp[1024] = {};
 	socket.Receive(1024);
 	memcpy(resp, socket.GetData(), socket.GetBytesReceived());
-	printf("Server said: %s\n", resp);
+	int r = 0;
+	if (strstr(resp, "submission is great"))
+		r = 1;
 	socket.Close();
 
-	return true;
+	return r;
 }
 
 int main(int argc, char **argv)
@@ -815,6 +817,7 @@ int main(int argc, char **argv)
     std::chrono::milliseconds sleeptime( 100 );
 
 	time_t secs = time(0);
+	time_t starttime = time(0);
 
 	size_t resultCount = 0;
 
@@ -839,16 +842,26 @@ int main(int argc, char **argv)
 			while (newResults.size())
 			{
 				std::string rs(newResults.front().to_s());
-				if (submit_share(btc, rs))
-					puts("Share sent!");
-				else
-					puts("Share send failed :-(");
+				switch (submit_share(btc, rs))
+				{
+				case -1:
+					puts("Share send failed. Couldn't connect.");
+					break;
+				case 1:
+					puts("Share accepted!");
+					++ resultCount;
+					break;
+				case 0:
+					puts("Share REJECTED.");
+					break;
+				}
 
 				newResults.pop_front();
-				++ resultCount;
 			}
 
-			printf("%d keys/sec - %d found\n", curtries / 10, resultCount);
+			double resultsPerHour = static_cast<double>(resultCount) / (static_cast<double>(curtime - starttime) / 60.0 / 60.0);
+
+			printf("%d keys/sec - %d found (%.2f / hour)\n", curtries / 10, resultCount, resultsPerHour);
 		}
 	}
 }
