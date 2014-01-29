@@ -807,7 +807,7 @@ int main(int argc, char **argv)
 	puts("Tips: 1gh2k13JzLTxDz2vmo8RH7HcjTLLg5kdc ;-)");
 	puts("");
 
-	printf("Staring %d threads. Hang on to your hats...\n", threadcount);
+	printf("Starting %d threads. Hang on to your hats...\n", threadcount);
 	printf("Sending payouts to %s\n", btc.data());
 
 	std::list<std::thread *> threads;
