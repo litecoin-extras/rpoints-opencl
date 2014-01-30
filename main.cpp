@@ -16,7 +16,7 @@
 
 //#include "vld.h"
 
-static const char *VERSION = "0.6";
+static const char *VERSION = "0.7";
 
 void leftmost_bit(mpz_t &out, const mpz_t &x)
 {
@@ -251,8 +251,6 @@ void submitter(const std::string btc)
 			}
 			queuedCount = static_cast<unsigned int>(queuedResults.size() + heldResults.size());
 			statsMutex.unlock();
-
-			queuedResults.pop_front();
 
 			queuedResults.splice(queuedResults.end(), heldResults);
 		} else {
