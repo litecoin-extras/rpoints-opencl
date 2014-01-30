@@ -139,6 +139,8 @@ void work()
 			break;
 		}
 
+		mpz_mod(temppriv, temppriv, r);
+
 		for(unsigned int i = 0; i < tries; ++ i)
 		{
 			myp.add(g);
