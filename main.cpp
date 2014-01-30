@@ -16,7 +16,7 @@
 
 //#include "vld.h"
 
-static const char *VERSION = "0.5";
+static const char *VERSION = "0.6";
 
 void leftmost_bit(mpz_t &out, const mpz_t &x)
 {
@@ -194,14 +194,18 @@ int submit_share(const std::string &btc, const std::string &result)
 	if (!socket.Send((const uint8 *)outbuf.data(), outbuf.size()))
 		return -1;
 
-	char resp[1024] = {};
-	socket.Receive(1024);
-	memcpy(resp, socket.GetData(), socket.GetBytesReceived());
 	int r = 0;
-	if (strstr(resp, "submission is great"))
-		r = 1;
-	if (strstr(resp, "submission is already here"))
-		r = 2;
+
+	char resp[1024] = {};
+	if (socket.Receive(1024) > 0)
+	{
+		memcpy(resp, socket.GetData(), socket.GetBytesReceived());
+		
+		if (strstr(resp, "submission is great"))
+			r = 1;
+		if (strstr(resp, "submission is already here"))
+			r = 2;
+	}
 	socket.Close();
 
 	return r;
@@ -221,16 +225,19 @@ void submitter(const std::string btc)
 		
 		std::list<Result> heldResults;
 
-		while (queuedResults.size())
+		if (queuedResults.size())
 		{
-			std::string rs(queuedResults.front().to_s());
+			Result nextResult(queuedResults.front());
+			queuedResults.pop_front();
+
+			std::string rs(nextResult.to_s());
 			int r = submit_share(btc, rs);
 
 			statsMutex.lock();
 			switch (r)
 			{
 			case -1:
-				heldResults.push_back(heldResults.front());
+				heldResults.push_back(nextResult);
 				break;
 			case 1:
 				++ resultCount;
@@ -242,13 +249,15 @@ void submitter(const std::string btc)
 				++ duplicateCount;
 				break;
 			}
-			queuedCount = static_cast<unsigned int>(queuedResults.size() + heldResults.size()) - 1;
+			queuedCount = static_cast<unsigned int>(queuedResults.size() + heldResults.size());
 			statsMutex.unlock();
 
 			queuedResults.pop_front();
-		}
 
-		queuedResults.splice(queuedResults.end(), heldResults);
+			queuedResults.splice(queuedResults.end(), heldResults);
+		} else {
+			std::this_thread::sleep_for( sleeptime );
+		}
 	}
 }
 
@@ -307,7 +316,7 @@ int main(int argc, char **argv)
 			statsMutex.lock();
 			double resultsPerHour = static_cast<double>(resultCount) / (static_cast<double>(curtime - starttime) / 60.0 / 60.0);
 
-			printf("%d keys/sec - %d found (%.2f / hour) - %d rej, %d dup, %d que\n", curtries / 10, resultCount, resultsPerHour, rejectCount, duplicateCount, queuedCount);
+			printf("%d keys/sec - %d accepted (%.2f / hour) - %d rej, %d dup, %d que\n", curtries / 10, resultCount, resultsPerHour, rejectCount, duplicateCount, queuedCount);
 			statsMutex.unlock();
 		}
 	}
