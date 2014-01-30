@@ -16,7 +16,7 @@
 
 //#include "vld.h"
 
-static const char *VERSION = "0.4";
+static const char *VERSION = "0.5";
 
 void leftmost_bit(mpz_t &out, const mpz_t &x)
 {
