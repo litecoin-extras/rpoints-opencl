@@ -4,6 +4,8 @@
 #include <thread>
 #include <list>
 #include <mutex>
+#include <iostream>
+
 
 #ifdef USE_GMP
 #include <gmp.h>
@@ -16,7 +18,7 @@
 
 //#include "vld.h"
 
-static const char *VERSION = "0.8";
+static const char *VERSION = "0.8-opencl";
 
 void leftmost_bit(mpz_t &out, const mpz_t &x)
 {
@@ -40,6 +42,7 @@ void leftmost_bit(mpz_t &out, const mpz_t &x)
 }
 
 // horrible raw cpp includes! I'm so lazy. deal with it.
+#include "OpenCLFramework.h"
 #include "result.h"
 #include "curvefp.h"
 #include "point.h"
@@ -56,6 +59,12 @@ static unsigned int queuedCount = 0;
 
 void work()
 {
+	/**
+	Evil-Knievel: Before starting OpenCL we must get the starting point, these methods are 1:1 from gh2k's port!	
+	**/
+
+
+
 	static const unsigned int tries = 100;
 
 	uint64 seed64 = (uint64)time(0) << 32 | static_cast<uint32>(std::hash<std::thread::id>()(std::this_thread::get_id()));
@@ -99,68 +108,130 @@ void work()
 
 	mpz_t priv;
 	mpz_init(priv);
-	mpz_t additor1;
-	mpz_init(additor1);
-	mpz_t additor2;
-	mpz_init(additor2);
-	mpz_t additor3;
-	mpz_init(additor3);
-	
 	mpz_urandomb(priv, randstate, 256);
-	mpz_urandomb(additor1, randstate, 230);
-	mpz_urandomb(additor2, randstate, 230);
-	mpz_urandomb(additor3, randstate, 128);
+
 
 	mpz_t temppriv;
 	mpz_init_set(temppriv, priv);
-	
+
 	Point myp = g * priv;
 
-	Point add1 = g * additor1;
-	Point add2 = g * additor2;
-	Point add3 = g * additor3;
+	
+
+	/**
+	Evil-Knievel: Create all OpenCL Related Entities here. We should think about moving it to OpenCLFramework.cpp
+	but I am a C++ noob so I make it quick and dirty.
+	**/
+
+	// Create Function Instance
+	OpenCLFramework clFunctions;
+
+	// open context
+	cl::Context context(CL_DEVICE_TYPE_GPU);
+	// create kernel from cl file
+	cl::Program program = clFunctions.buildProgramFromSource(context, "kernel/evilknievel.cl", "");
+	std::vector<cl::Device> devices= context.getInfo<CL_CONTEXT_DEVICES>();
+	//std::cout << "\nUsing device " << devices[0].getInfo<CL_DEVICE_NAME>() << endl;
+
+	//Make a queue to put jobs on the first compute device
+	cl::CommandQueue queue(context, devices[0], CL_QUEUE_PROFILING_ENABLE);
+
+	// Host Memory Stuff that will be mapped to a cl::Buffer somewhere
+	bignum points_in[2]; // <------ here goes the starting point, e.g. random myp point
+	bignum points_found[2];
+	cl_uint found_cell_index = 0;
+	cl_uint found = 0;
+
+	// create buffers for CL Device
+	cl::Buffer found_buffer(context, CL_MEM_WRITE_ONLY, sizeof(cl_uint)* 1);
+	cl::Buffer found_cell(context, CL_MEM_READ_WRITE, sizeof(cl_uint)* 1);
+	cl::Buffer points_in_buffer(context, CL_MEM_READ_WRITE  /* | CL_MEM_COPY_HOST_PTR */, sizeof(bignum)* 2);
+	cl::Buffer found_point(context, CL_MEM_WRITE_ONLY  /* | CL_MEM_COPY_HOST_PTR */, sizeof(bignum)* 2);
+
+	// Write necessary buffers
+	queue.enqueueWriteBuffer(found_cell, CL_TRUE, 0, sizeof(cl_uint)* 1, &found_cell_index);
+	queue.enqueueWriteBuffer(points_in_buffer, CL_TRUE, 0, sizeof(bignum)* 2, points_in);
+
+	// Prepare Opencl Kernel for execution
+	cl::Kernel kernel = cl::Kernel(program, "search_triplets");
+	kernel.setArg(0, found_buffer);
+	kernel.setArg(1, points_in_buffer);
+	kernel.setArg(2, found_point);
+	kernel.setArg(3, found_cell);
+	unsigned int i_global_work_size = 81920; // <------- these are hardcoded, maybe we need some autodetection like cgminer does !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	unsigned int i_local_work_size = 256;  // <------- these are hardcoded, maybe we need some autodetection like cgminer does !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	/* it is ugly to create this mpz_number here, but we have to do this after setting global work size*/
+	mpz_t work_size_incrementor;
+	mpz_init(work_size_incrementor);
+	mpz_set_ui(work_size_incrementor, i_global_work_size);
+	// init a fixed point to be added each iteration
+	Point g_worksize_increment = g*work_size_incrementor;
+	const cl::NDRange global_work_offset(0, 0);
+	const cl::NDRange global_work_size(i_global_work_size, 1, 1);
+	const cl::NDRange local_work_size(i_local_work_size, 1, 1);
+
+
+
 
 	while( true )
 	{
-		unsigned int shuffle = rand() % 3;
-		switch(shuffle)
-		{
-		case 0:
-			myp.add(add1);
-			mpz_add(temppriv, temppriv, additor1);
-			break;
-		case 2:
-			myp.add(add2);
-			mpz_add(temppriv, temppriv, additor2);
-			break;
-		default:
-			myp.add(add3);
-			mpz_add(temppriv, temppriv, additor3);
-			break;
-		}
-
-		mpz_mod(temppriv, temppriv, r);
-
-		for(unsigned int i = 0; i < tries; ++ i)
-		{
-			myp.add(g);
-			mpz_add_ui(temppriv, temppriv, 1);
-
-			uint32 match = static_cast<uint32>(mpz_get_ui(myp.x()));
-
-			if (targets.count(match))
-			{
-				resultMutex.lock();
-				resultList.push_back(Result(myp.x(), myp.y(), temppriv));
-				resultMutex.unlock();
+		
+		// Launch the kernel and do 81920 parallel calculations
+		int ret = queue.enqueueNDRangeKernel(kernel, global_work_offset, global_work_size, local_work_size, NULL, NULL);
+		if (ret != CL_SUCCESS){
+			std::cerr << "clEnqueueNDRangeKernel fail" << std::endl;
+			if (ret == CL_OUT_OF_RESOURCES){
+				std::cerr << "Kernel out of resources!!! Try lowering global/local worksize in the source code! You GPU seems to be 'low end'" << std::endl;
 			}
 		}
-		
+
+		// Now check if the kernel reported a found point back
+		queue.enqueueReadBuffer(found_buffer, CL_TRUE, 0, sizeof(cl_int)* 1, &found);
+		queue.enqueueReadBuffer(points_in_buffer, CL_TRUE, 0, sizeof(bignum)* 2, points_in);
+
+		if (found > 0){
+			// Yes, the GPU actually did find a value triplet.
+			
+			// Now let us read the result from the GPU!!!
+			// WARNING: AT THE MOMENT THE GPU CAN ONLY FIND ONE TRIPLET PER KERNEL/RUN and we have only one found and one points_found variable shared with the kernel
+			queue.enqueueReadBuffer(found_cell, CL_TRUE, 0, sizeof(cl_uint)* 1, &found_cell_index); // <------ found index is the thread number which actually found the triplet
+			// (RATHER THAN GETTING THIS INFO FROM THE GPU, I TRY TO CALC THE X,Y A FEW LINES BELOW THIS ON MY OWN! NOT SURE IF ITS THE BEST IDEA ....... queue.enqueueReadBuffer(found_point, CL_TRUE, 0, sizeof(bignum)* 2, points_found);  // <----- and here the found x and y are given back
+
+			found = 0; // reset found
+			queue.enqueueWriteBuffer(found_buffer, CL_TRUE, 0, sizeof(cl_int)* 1, &found); // also reset found variable on GPU memory
+
+			/**
+			At this point we can reconstruct the triplet from points_found[0], points_found[1] and temppriv!!!
+			**/
+
+			resultMutex.lock();
+			resultList.push_back(Result(myp.x(), myp.y(), temppriv));
+			resultMutex.unlock();
+
+		}
+
+		// Before doing anything else, increment temppriv by the number of iterations we have done so far!
+		mpz_add(temppriv, temppriv, work_size_incrementor);
+		// and also update our starting point here so we keep track how far we moved already
+		myp = myp + g_worksize_increment;
+
+		countMutex.lock();
+		tryCount += i_global_work_size;	// We have actually did so many tries as the global_work_size says as we are having this many parallel threads on the GPU
+		countMutex.unlock();
+
+
+
+		/**
+		resultMutex.lock();
+		resultList.push_back(Result(myp.x(), myp.y(), temppriv));
+		resultMutex.unlock();
+			
 		countMutex.lock();
 		tryCount += tries;
-		countMutex.unlock();
+		countMutex.unlock();**/
 	}
 
+	mpz_clear(work_size_incrementor);
 	mpz_clear(gx);
 	mpz_clear(gy);
 	mpz_clear(r);
@@ -169,9 +240,6 @@ void work()
 	mpz_clear(a);
 	mpz_clear(priv);
 	mpz_clear(temppriv);
-	mpz_clear(additor1);
-	mpz_clear(additor2);
-	mpz_clear(additor3);
 	mpz_clear(seed);
 }
 
@@ -261,35 +329,28 @@ void submitter(const std::string btc)
 
 int main(int argc, char **argv)
 {
-	if ( argc != 3 )
+	if ( argc != 2 )
 	{
-		printf("Usage: %s bitcoinaddress num_threads\n", argv[0]);
+		printf("Usage: %s bitcoinaddress\n", argv[0]);
 		return -1;
 	}
 
 	std::string btc(argv[1]);
 
-	int threadcount = atoi(argv[2]);
-	if (threadcount < 1 || threadcount > 512)
-	{
-		puts("Invalid thread count");
-		return -1;
-	}
+	
 
 	std::list<Result> held_results;
 
-	printf("C++ BTC address space analyzer by gh2k, v%s\n", VERSION);
+	printf("C++ BTC address space analyzer by gh2k (modified to support OpenCL), v%s\n", VERSION);
 	puts("Tips: 1gh2k13JzLTxDz2vmo8RH7HcjTLLg5kdc ;-)");
 	puts("");
 
-	printf("Starting %d threads. Hang on to your hats...\n", threadcount);
+	printf("Starting OpenCL kernel. Hang on to your hats...\n");
 	printf("Sending payouts to %s\n", btc.data());
 
 	std::list<std::thread *> threads;
-	for( int i = 0; i < threadcount; ++ i )
-	{
-		threads.push_back(new std::thread(work));
-	}
+	// EVILKNIEVEL: For threads only one worker thread, as the parallelization will be done on the GPU itself!
+	threads.push_back(new std::thread(work));
 	
 	threads.push_back(new std::thread(submitter, btc));
 	
