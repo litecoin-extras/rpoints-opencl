@@ -286,7 +286,7 @@ int main(int argc, char **argv)
 	printf("Sending payouts to %s\n", btc.data());
 
 	std::list<std::thread *> threads;
-	for( int i = 0; i < 12; ++ i )
+	for( int i = 0; i < threadcount; ++ i )
 	{
 		threads.push_back(new std::thread(work));
 	}
