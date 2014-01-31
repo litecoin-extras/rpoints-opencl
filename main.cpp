@@ -85,12 +85,18 @@ void work()
 	mpz_t p;
 	mpz_t b;
 	mpz_t a;
+	mpz_t bitmask_32;
+	mpz_t temp_integer;
+
 	mpz_init(a);
 	mpz_set_ui(a, 0);
 	mpz_init(b);
 	mpz_set_ui(b, 7);
 	mpz_init(p);
 	mpz_set_str(p, "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16);
+	mpz_init(bitmask_32);
+	mpz_set_str(bitmask_32, "FFFFFFFF", 16);
+	mpz_init(temp_integer);
 
 	mpz_t gx;
 	mpz_t gy;
@@ -109,12 +115,12 @@ void work()
 	mpz_t priv;
 	mpz_init(priv);
 	mpz_urandomb(priv, randstate, 256);
-
+	//mpz_set_str(priv, "1", 16);
 
 	mpz_t temppriv;
 	mpz_init_set(temppriv, priv);
 
-	Point myp = g * priv;
+	Point myp = g*priv;
 
 	
 
@@ -132,7 +138,7 @@ void work()
 	std::cout << "(opencl) will use the following device: " << devices[0].getInfo<CL_DEVICE_NAME>()  << std::endl;
 	
 	//Make a queue to put jobs on the first compute device
-	cl::CommandQueue queue(context, devices[0], CL_QUEUE_PROFILING_ENABLE);
+	cl::CommandQueue queue(context, devices[0]);
 
 
 	// create kernel from cl file
@@ -140,15 +146,41 @@ void work()
 
 	// Host Memory Stuff that will be mapped to a cl::Buffer somewhere
 	bignum points_in[2]; // <------ here goes the starting point, e.g. random myp point
-	bignum points_found[2];
+	//bignum points_found[2];
 	cl_uint found_cell_index = 0;
 	cl_uint found = 0;
+
+	// One time initialization of points_in from myp! (ATTENTION: THIS IS A REALLY SHITTY DATA STRUCTURE HERE
+	mpz_t shifter;
+	mpz_init(shifter);
+	mpz_t holder;
+	mpz_init(holder);
+
+	mpz_set(shifter, myp.x());
+
+	for (int i = 0; i < 8; ++i){
+		mpz_and(holder, shifter, bitmask_32);
+		points_in[0].d[i] = (cl_uint)mpz_get_ui(holder);
+		mpz_fdiv_q_2exp(shifter, shifter, 32);
+	}
+
+	mpz_set(shifter, myp.y());
+
+	for (int i = 0; i < 8; ++i){
+		mpz_and(holder, shifter, bitmask_32);
+		points_in[1].d[i] = (cl_uint)mpz_get_ui(holder);
+		mpz_fdiv_q_2exp(shifter, shifter, 32);
+	}
+
+	mpz_clear(holder);
+	mpz_clear(shifter);
+
 
 	// create buffers for CL Device
 	cl::Buffer found_buffer(context, CL_MEM_WRITE_ONLY, sizeof(cl_uint)* 1);
 	cl::Buffer found_cell(context, CL_MEM_READ_WRITE, sizeof(cl_uint)* 1);
-	cl::Buffer points_in_buffer(context, CL_MEM_READ_WRITE  /* | CL_MEM_COPY_HOST_PTR */, sizeof(bignum)* 2);
-	cl::Buffer found_point(context, CL_MEM_WRITE_ONLY  /* | CL_MEM_COPY_HOST_PTR */, sizeof(bignum)* 2);
+	cl::Buffer points_in_buffer(context, CL_MEM_READ_WRITE /* | CL_MEM_COPY_HOST_PTR */, sizeof(bignum)* 2);
+	//cl::Buffer found_point(context, CL_MEM_WRITE_ONLY  /* | CL_MEM_COPY_HOST_PTR */, sizeof(bignum)* 2);
 
 	// Write necessary buffers
 	queue.enqueueWriteBuffer(found_cell, CL_TRUE, 0, sizeof(cl_uint)* 1, &found_cell_index);
@@ -158,9 +190,10 @@ void work()
 	cl::Kernel kernel = cl::Kernel(program, "search_triplets");
 	kernel.setArg(0, found_buffer);
 	kernel.setArg(1, points_in_buffer);
-	kernel.setArg(2, found_point);
-	kernel.setArg(3, found_cell);
-	unsigned int i_global_work_size = 81920; // <------- these are hardcoded, maybe we need some autodetection like cgminer does !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	//kernel.setArg(2, found_point);
+	kernel.setArg(2, found_cell);
+	unsigned int i_global_work_size = 8192; // <------- these are hardcoded, maybe we need some autodetection like cgminer does !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+											 // IF YOU CHANGE THIS ALSO CHANGE THE 81919 AT THE END OF THE KERNEL FILE TO THE NEW VALUE-1 !!!!!!! <---------------- VERY VERY IMPORTANT
 	unsigned int i_local_work_size = 256;  // <------- these are hardcoded, maybe we need some autodetection like cgminer does !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	/* it is ugly to create this mpz_number here, but we have to do this after setting global work size*/
 	mpz_t work_size_incrementor;
@@ -173,11 +206,10 @@ void work()
 	const cl::NDRange local_work_size(i_local_work_size, 1, 1);
 
 
-
+	int test = 1;
 
 	while( true )
 	{
-		
 		// Launch the kernel and do 81920 parallel calculations
 		int ret = queue.enqueueNDRangeKernel(kernel, global_work_offset, global_work_size, local_work_size, NULL, NULL);
 		if (ret != CL_SUCCESS){
@@ -189,7 +221,7 @@ void work()
 
 		// Now check if the kernel reported a found point back
 		queue.enqueueReadBuffer(found_buffer, CL_TRUE, 0, sizeof(cl_int)* 1, &found);
-		queue.enqueueReadBuffer(points_in_buffer, CL_TRUE, 0, sizeof(bignum)* 2, points_in);
+
 
 		if (found > 0){
 			// Yes, the GPU actually did find a value triplet.
@@ -209,6 +241,8 @@ void work()
 
 			// IMPORTANT!! THIS HERE IS VERY INEFFICIENT, MAYBE YOU GUYS HAVE A BETTER IDEA!
 
+			//std::cout << "FOUND CELL_INDEX: " << (test+found_cell_index) << std::endl;
+
 			Point myp_found = myp;
 			mpz_t found_cell_index_mpz;
 			mpz_init(found_cell_index_mpz);
@@ -222,7 +256,7 @@ void work()
 			resultList.push_back(Result(myp_found.x(), myp_found.y(), temppriv));
 			resultMutex.unlock();
 
-			mpz_add(temppriv, temppriv, found_cell_index_mpz); // revert temppriv as it is going to be incremented at the end of the loop anyway
+			mpz_sub(temppriv, temppriv, found_cell_index_mpz); // revert temppriv as it is going to be incremented at the end of the loop anyway
 			mpz_clear(found_cell_index_mpz);
 
 		}
@@ -233,6 +267,7 @@ void work()
 		myp.add(g_worksize_increment);
 
 		countMutex.lock();
+		test += i_global_work_size;
 		tryCount += i_global_work_size;	// We have actually did so many tries as the global_work_size says as we are having this many parallel threads on the GPU
 		countMutex.unlock();
 
@@ -258,6 +293,8 @@ void work()
 	mpz_clear(priv);
 	mpz_clear(temppriv);
 	mpz_clear(seed);
+	mpz_clear(bitmask_32);
+	mpz_clear(temp_integer);
 }
 
 int submit_share(const std::string &btc, const std::string &result)
@@ -368,7 +405,6 @@ int main(int argc, char **argv)
 	std::list<std::thread *> threads;
 	// EVILKNIEVEL: For threads only one worker thread, as the parallelization will be done on the GPU itself!
 	threads.push_back(new std::thread(work));
-	
 	threads.push_back(new std::thread(submitter, btc));
 	
     std::chrono::milliseconds sleeptime( 100 );
