@@ -2,6 +2,7 @@
 /**
 OpenCL Basic Functions by Evil-Knievel
 **/
+//#define __CL_ENABLE_EXCEPTIONS
 #include <CL/cl.hpp>
 
 typedef cl_uint bn_word;
@@ -24,7 +25,7 @@ class OpenCLFramework
 public:
 	OpenCLFramework();
 	std::string intToHex(unsigned int p);
-	cl::Program& buildProgramFromSource(cl::Context* context, std::string filename, std::string buildOptions);
+	cl::Program buildProgramFromSource(cl::Context* context, std::string filename, std::string buildOptions);
 
 	~OpenCLFramework();
 };

@@ -8,6 +8,7 @@
 OpenCL Basic Functions by Evil-Knievel
 **/
 
+std::string helloStr = "__kernel void hello(void) { }\n";
 
 using namespace std;
 OpenCLFramework::OpenCLFramework()
@@ -25,7 +26,7 @@ std::string  OpenCLFramework::intToHex(unsigned int p){
 	return std::string(str);
 }
 
-cl::Program& OpenCLFramework::buildProgramFromSource(cl::Context* context, std::string filename, std::string buildOptions) {
+cl::Program OpenCLFramework::buildProgramFromSource(cl::Context* context, std::string filename, std::string buildOptions) {
 	// Read source file
 	std::ifstream sourceFile(filename.c_str());
 	if (sourceFile.fail())
@@ -34,8 +35,13 @@ cl::Program& OpenCLFramework::buildProgramFromSource(cl::Context* context, std::
 		std::istreambuf_iterator<char>(sourceFile),
 		(std::istreambuf_iterator<char>()));
 
+
+	//sourceCode = helloStr; 
+
 	std::cout << "(Kernel) source code size in bytes: " << sourceCode.length() << std::endl;
 	std::cout << "(Kernel) starting to build for GPU device." << std::endl;
+
+
 	cl::Program::Sources source(1, std::make_pair(sourceCode.c_str(), strlen(sourceCode.c_str())));
 	std::cout << "(Kernel) cl source object has size: " << source.size() << std::endl;
 
@@ -55,6 +61,9 @@ cl::Program& OpenCLFramework::buildProgramFromSource(cl::Context* context, std::
 		//}
 		throw error;
 	}
+
+	std::cout << "(Kernel) kernel has compiled fine." << std::endl;
+
 
 	return program;
 

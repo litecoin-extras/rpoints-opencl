@@ -128,13 +128,15 @@ void work()
 
 	// open context
 	cl::Context context(CL_DEVICE_TYPE_GPU);
-	// create kernel from cl file
-	cl::Program program = clFunctions.buildProgramFromSource(&context, "kernel/evilknievel.cl", "");
 	std::vector<cl::Device> devices= context.getInfo<CL_CONTEXT_DEVICES>();
-	//std::cout << "\nUsing device " << devices[0].getInfo<CL_DEVICE_NAME>() << endl;
-
+	std::cout << "(opencl) will use the following device: " << devices[0].getInfo<CL_DEVICE_NAME>()  << std::endl;
+	
 	//Make a queue to put jobs on the first compute device
 	cl::CommandQueue queue(context, devices[0], CL_QUEUE_PROFILING_ENABLE);
+
+
+	// create kernel from cl file
+	cl::Program program = clFunctions.buildProgramFromSource(&context, "kernel/evilknievel.cl", "");
 
 	// Host Memory Stuff that will be mapped to a cl::Buffer somewhere
 	bignum points_in[2]; // <------ here goes the starting point, e.g. random myp point
@@ -179,7 +181,7 @@ void work()
 		// Launch the kernel and do 81920 parallel calculations
 		int ret = queue.enqueueNDRangeKernel(kernel, global_work_offset, global_work_size, local_work_size, NULL, NULL);
 		if (ret != CL_SUCCESS){
-			std::cerr << "clEnqueueNDRangeKernel fail" << std::endl;
+			std::cerr << "clEnqueueNDRangeKernel fail. Error " << ret << std::endl;
 			if (ret == CL_OUT_OF_RESOURCES){
 				std::cerr << "Kernel out of resources!!! Try lowering global/local worksize in the source code! You GPU seems to be 'low end'" << std::endl;
 			}
