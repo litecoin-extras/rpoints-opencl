@@ -95,7 +95,7 @@ public:
 
 	const mpz_t &p() const { return m_p; }
 	const mpz_t &a() const { return m_a; }
-private:
+
 	mpz_t m_p;
 	mpz_t m_a;
 	mpz_t m_b;

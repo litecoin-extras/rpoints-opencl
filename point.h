@@ -14,6 +14,7 @@ public:
 		{
 			//assert(Point((*this) * o).m_inv); <-- infinite recursion!
 		}*/
+		init_sp();
 	}
 	Point(const Point &other)
 		:m_curve(other.m_curve)
@@ -22,6 +23,7 @@ public:
 		mpz_init_set(m_y, other.m_y);
 		mpz_init_set(m_o, other.m_o);
 		m_inv = other.m_inv;
+		init_sp();
 	}
 	Point()
 	{
@@ -29,12 +31,58 @@ public:
 		mpz_init(m_y);
 		mpz_init(m_o);
 		m_inv = true;
+		init_sp();
 	}
 	virtual ~Point()
 	{
 		mpz_clear(m_x);
 		mpz_clear(m_y);
 		mpz_clear(m_o);
+		done_sp();
+	}
+
+	// Scratchpad variables
+	mpz_t imod;
+	mpz_t l;
+	mpz_t lsq;
+	mpz_t lsq2;
+	mpz_t lsq3;
+	mpz_t mul;
+	mpz_t x3;
+	mpz_t xmx3;
+	mpz_t xsub;
+	mpz_t ymul;
+	mpz_t ys;
+	mpz_t ysub;
+
+	void init_sp(){
+		mpz_init(imod);
+		mpz_init(l);
+		mpz_init(lsq);
+		mpz_init(lsq2);
+		mpz_init(lsq3);
+		mpz_init(mul);
+		mpz_init(x3);
+		mpz_init(xmx3);
+		mpz_init(xsub);
+		mpz_init(ymul);
+		mpz_init(ys);
+		mpz_init(ysub);
+	}
+
+	void done_sp(){
+		mpz_clear(ys);
+		mpz_clear(ymul);
+		mpz_clear(xmx3);
+		mpz_clear(x3);
+		mpz_clear(lsq3);
+		mpz_clear(lsq2);
+		mpz_clear(lsq);
+		mpz_clear(l);
+		mpz_clear(mul);
+		mpz_clear(imod);
+		mpz_clear(xsub);
+		mpz_clear(ysub);
 	}
 
 	Point &operator = (const Point &other)
@@ -56,8 +104,6 @@ public:
 			return;
 		}
 
-		//assert(m_curve == other.m_curve);
-
 		if (mpz_cmp(m_x, other.m_x) == 0)
 		{
 			mpz_t yadd;
@@ -66,7 +112,7 @@ public:
 			mpz_init(ymod);
 
 			mpz_add(yadd, m_y, other.m_y);
-			mpz_mod(ymod, yadd, m_curve.p());
+			mpz_mod(ymod, yadd, m_curve.m_p);
 
 			int cmp = mpz_cmp_ui(ymod, 0);
 
@@ -85,75 +131,21 @@ public:
 			}
 		}
 
-		mpz_t ysub;
-		mpz_init(ysub);
 		mpz_sub(ysub, other.m_y, m_y);
-
-		mpz_t xsub;
-		mpz_init(xsub);
 		mpz_sub(xsub, other.m_x, m_x);
-
-		mpz_t imod;
-		mpz_init(imod);
-		mpz_invert(imod, xsub, m_curve.p());
-
-		mpz_t mul;
-		mpz_init(mul);
+		mpz_invert(imod, xsub, m_curve.m_p);
 		mpz_mul(mul, ysub, imod);
-
-		mpz_t l;
-		mpz_init(l);
-		mpz_mod(l, mul, m_curve.p());
-
-		mpz_t lsq;
-		mpz_init(lsq);
+		mpz_mod(l, mul, m_curve.m_p);
 		mpz_pow_ui(lsq, l, 2);
-
-		mpz_t lsq2;
-		mpz_init(lsq2);
 		mpz_sub(lsq2, lsq, m_x);
-
-		mpz_t lsq3;
-		mpz_init(lsq3);
 		mpz_sub(lsq3, lsq2, other.m_x);
-
-		mpz_t x3;
-		mpz_init(x3);
-		mpz_mod(x3, lsq3, m_curve.p());
-
-		mpz_t xmx3;
-		mpz_init(xmx3);
+		mpz_mod(x3, lsq3, m_curve.m_p);
 		mpz_sub(xmx3, m_x, x3);
-
-		mpz_t ymul;
-		mpz_init(ymul);
 		mpz_mul(ymul, l, xmx3);
-
-		mpz_t ys;
-		mpz_init(ys);
 		mpz_sub(ys, ymul, m_y);
-
-		mpz_t y3;
-		mpz_init(y3);
-		mpz_mod(y3, ys, m_curve.p());
-
+		mpz_mod(m_y, ys, m_curve.m_p);
 		mpz_set(m_x, x3);
-		mpz_set(m_y, y3);
 		mpz_set_ui(m_o, 0);
-
-		mpz_clear(y3);
-		mpz_clear(ys);
-		mpz_clear(ymul);
-		mpz_clear(xmx3);
-		mpz_clear(x3);
-		mpz_clear(lsq3);
-		mpz_clear(lsq2);
-		mpz_clear(lsq);
-		mpz_clear(l);
-		mpz_clear(mul);
-		mpz_clear(imod);
-		mpz_clear(xsub);
-		mpz_clear(ysub);
 	}
 	Point operator * (const mpz_t &mul)
 	{
@@ -250,7 +242,7 @@ public:
 
 		mpz_t imod;
 		mpz_init(imod);
-		mpz_invert(imod, ydbl, m_curve.p());
+		mpz_invert(imod, ydbl, m_curve.m_p);
 
 		mpz_t mul;
 		mpz_init(mul);
@@ -258,7 +250,7 @@ public:
 
 		mpz_t l;
 		mpz_init(l);
-		mpz_mod(l, mul, m_curve.p());
+		mpz_mod(l, mul, m_curve.m_p);
 
 		mpz_t lsq;
 		mpz_init(lsq);
@@ -274,7 +266,7 @@ public:
 
 		mpz_t x3;
 		mpz_init(x3);
-		mpz_mod(x3, lsqmx2, m_curve.p());
+		mpz_mod(x3, lsqmx2, m_curve.m_p);
 
 		mpz_t xmx3;
 		mpz_init(xmx3);
@@ -290,7 +282,7 @@ public:
 
 		mpz_t y3;
 		mpz_init(y3);
-		mpz_mod(y3, ys, m_curve.p());
+		mpz_mod(y3, ys, m_curve.m_p);
 
 		mpz_t mpZero;
 		mpz_init(mpZero);
