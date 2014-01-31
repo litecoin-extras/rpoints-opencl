@@ -129,7 +129,7 @@ void work()
 	// open context
 	cl::Context context(CL_DEVICE_TYPE_GPU);
 	// create kernel from cl file
-	cl::Program program = clFunctions.buildProgramFromSource(context, "kernel/evilknievel.cl", "");
+	cl::Program program = clFunctions.buildProgramFromSource(&context, "kernel/evilknievel.cl", "");
 	std::vector<cl::Device> devices= context.getInfo<CL_CONTEXT_DEVICES>();
 	//std::cout << "\nUsing device " << devices[0].getInfo<CL_DEVICE_NAME>() << endl;
 
@@ -202,18 +202,33 @@ void work()
 
 			/**
 			At this point we can reconstruct the triplet from points_found[0], points_found[1] and temppriv!!!
+			in face we dont take points_found for now but calculate the found point from myp and temppriv and found_cell_index
 			**/
 
+			// IMPORTANT!! THIS HERE IS VERY INEFFICIENT, MAYBE YOU GUYS HAVE A BETTER IDEA!
+
+			Point myp_found = myp;
+			mpz_t found_cell_index_mpz;
+			mpz_init(found_cell_index_mpz);
+			mpz_set_ui(found_cell_index_mpz, found_cell_index);
+
+			Point adding_found_index_offset = g*found_cell_index_mpz;
+			myp_found.add(adding_found_index_offset);
+			mpz_add(temppriv, temppriv, found_cell_index_mpz);
+
 			resultMutex.lock();
-			resultList.push_back(Result(myp.x(), myp.y(), temppriv));
+			resultList.push_back(Result(myp_found.x(), myp_found.y(), temppriv));
 			resultMutex.unlock();
+
+			mpz_add(temppriv, temppriv, found_cell_index_mpz); // revert temppriv as it is going to be incremented at the end of the loop anyway
+			mpz_clear(found_cell_index_mpz);
 
 		}
 
 		// Before doing anything else, increment temppriv by the number of iterations we have done so far!
 		mpz_add(temppriv, temppriv, work_size_incrementor);
 		// and also update our starting point here so we keep track how far we moved already
-		myp = myp + g_worksize_increment;
+		myp.add(g_worksize_increment);
 
 		countMutex.lock();
 		tryCount += i_global_work_size;	// We have actually did so many tries as the global_work_size says as we are having this many parallel threads on the GPU
